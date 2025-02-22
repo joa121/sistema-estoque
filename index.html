@@ -14,14 +14,8 @@
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <!-- SortableJS -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.10.2/Sortable.min.js"></script>
-  <!-- EmailJS SDK -->
-  <script type="text/javascript" src="https://cdn.emailjs.com/sdk/2.3.2/email.min.js"></script>
-  <script type="text/javascript">
-      (function(){
-         // Inicializa com a sua Public Key fornecida
-         emailjs.init("solFrTsgTIaarSHsW");
-      })();
-  </script>
+  
+  <!-- OBS.: Removemos a integração com EmailJS pois usaremos o FormSubmit -->
   
   <!-- Estilos customizados (Preto & Laranja) -->
   <style>
@@ -193,8 +187,8 @@
               <button class="btn btn-black" onclick="gerarPDFRelatorio()">Gerar PDF Estoque Baixo</button>
               <button class="btn btn-orange" onclick="gerarPDFCompletoComBarCode()">Gerar PDF Completo com Cód. de Barras</button>
               <button class="btn btn-black" onclick="gerarPDFCompletoEstoque()">Gerar PDF Completo (Estoque)</button>
-              <!-- Botão para enviar relatório por e-mail -->
-              <button class="btn btn-orange" onclick="enviarRelatorioEmail()">Enviar Relatório por E-mail</button>
+              <!-- Botão para enviar relatório por e-mail via FormSubmit -->
+              <button class="btn btn-orange" onclick="enviarRelatorioEmailFormSubmit()">Enviar Relatório por E-mail</button>
               <!-- Botão para gerar formulário de retirada manual -->
               <button class="btn btn-black" onclick="gerarFormularioRetirada()">Gerar Formulário de Retirada Manual</button>
             </div>
@@ -203,6 +197,16 @@
       </div>
     </div>
   </div>
+
+  <!-- Formulário oculto para envio via FormSubmit -->
+  <form id="hiddenEmailForm" action="https://formsubmit.co/metalurgica.aguiaglobal@gmail.com" method="POST" style="display: none;">
+    <!-- Define o assunto do e-mail -->
+    <input type="hidden" name="_subject" value="Relatório de Estoque - Sistema de Estoque Completo">
+    <!-- Campo que conterá o relatório -->
+    <input type="hidden" name="message" id="hiddenMessage">
+    <!-- Opcional: URL para redirecionamento após envio -->
+    <input type="hidden" name="_next" value="https://seu-dominio.com/obrigado.html">
+  </form>
 
   <!-- Scripts do Bootstrap -->
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
@@ -450,8 +454,8 @@
               <h2 class="section-title">Histórico de Movimentações</h2>
               <button class="btn btn-sm btn-orange mb-2" onclick="toggleHistorico()">Mostrar/Esconder Histórico</button>
               <div id="historicoMovimentacoes"></div>
-              <!-- Botão para enviar e-mail com relatório -->
-              <button class="btn btn-orange mt-3" onclick="enviarRelatorioEmail()">Enviar Relatório por E-mail</button>
+              <!-- Botão para enviar e-mail com relatório via FormSubmit -->
+              <button class="btn btn-orange mt-3" onclick="enviarRelatorioEmailFormSubmit()">Enviar Relatório por E-mail</button>
             </div>
           </div>
           <!-- Backup de Dados -->
@@ -944,8 +948,9 @@
       exibirToast("Formulário de retirada gerado com sucesso!", "success");
     }
     
-    /*********** Envio de E-mail com Relatório ***********/
-    function enviarRelatorioEmail() {
+    /*********** Envio de E-mail com Relatório via FormSubmit ***********/
+    function enviarRelatorioEmailFormSubmit() {
+      // Monta o relatório com os produtos em estoque
       let report = "Relatório de Estoque\n\nProdutos:\n";
       produtos.forEach(produto => {
         const embalagens = produto.tamanhoEmbalagem ? Math.floor(produto.quantidade / produto.tamanhoEmbalagem) : "-";
@@ -954,29 +959,19 @@
       const LIMITE_AVISO = 10;
       const lowStock = produtos.filter(produto => produto.quantidade <= LIMITE_AVISO);
       if (lowStock.length > 0) {
-        report += "\nProdutos com Estoque Baixo:\n";
+        report += "\nProdutos com Estoque Baixo (Necessitam de Reposição):\n";
         lowStock.forEach(produto => {
           report += `• ${produto.nome} - Quantidade: ${produto.quantidade}\n`;
         });
       }
-      const templateParams = {
-        to_email: "metalurgica.aguiaglobal@gmail.com",
-        to_name: "Metalúrgica Águiá Global",
-        subject: "Relatório de Estoque - Sistema de Estoque Completo",
-        message: report
-      };
-
-      // Utiliza os dados fornecidos:
-      // Service ID: service_agyg2lm
-      // Template ID: template_zsjzayj
-      emailjs.send('service_agyg2lm', 'template_zsjzayj', templateParams)
-        .then(function(response) {
-          console.log('E-mail enviado com sucesso!', response.status, response.text);
-          exibirToast("E-mail enviado com sucesso!", "success");
-        }, function(error) {
-          console.error('Erro ao enviar e-mail:', error);
-          exibirToast("Erro ao enviar e-mail.", "danger");
-        });
+      
+      // Preenche o campo do formulário oculto com o relatório
+      document.getElementById("hiddenMessage").value = report;
+      
+      // Submete o formulário (o envio ocorrerá via FormSubmit)
+      document.getElementById("hiddenEmailForm").submit();
+      
+      exibirToast("Relatório enviado por e-mail (via FormSubmit)!", "success");
     }
     
     /*********** Foco no Scanner ***********/
