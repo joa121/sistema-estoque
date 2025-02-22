@@ -15,8 +15,6 @@
   <!-- SortableJS -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.10.2/Sortable.min.js"></script>
   
-  <!-- OBS.: Removemos a integração com EmailJS pois usaremos o FormSubmit -->
-  
   <!-- Estilos customizados (Preto & Laranja) -->
   <style>
     body {
@@ -202,7 +200,9 @@
   <form id="hiddenEmailForm" action="https://formsubmit.co/metalurgica.aguiaglobal@gmail.com" method="POST" style="display: none;">
     <!-- Define o assunto do e-mail -->
     <input type="hidden" name="_subject" value="Relatório de Estoque - Sistema de Estoque Completo">
-    <!-- Campo que conterá o relatório -->
+    <!-- Define o formato do email como HTML -->
+    <input type="hidden" name="_format" value="html">
+    <!-- Campo que conterá o relatório (HTML) -->
     <input type="hidden" name="message" id="hiddenMessage">
     <!-- Opcional: URL para redirecionamento após envio -->
     <input type="hidden" name="_next" value="https://seu-dominio.com/obrigado.html">
@@ -950,25 +950,65 @@
     
     /*********** Envio de E-mail com Relatório via FormSubmit ***********/
     function enviarRelatorioEmailFormSubmit() {
-      // Monta o relatório com os produtos em estoque
-      let report = "Relatório de Estoque\n\nProdutos:\n";
+      // Monta o relatório em HTML com tabelas coloridas
+      let reportHTML = `
+        <h2>Relatório de Estoque - Sistema de Estoque Completo</h2>
+        <h3>Produtos em Estoque:</h3>
+        <table border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: #FFA500; color: #000;">
+              <th>Produto</th>
+              <th>Quantidade</th>
+              <th>Tamanho da Embalagem</th>
+              <th>Embalagens</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
       produtos.forEach(produto => {
         const embalagens = produto.tamanhoEmbalagem ? Math.floor(produto.quantidade / produto.tamanhoEmbalagem) : "-";
-        report += `• ${produto.nome} - Quantidade: ${produto.quantidade} | Tamanho: ${produto.tamanhoEmbalagem || produto.tamanho || "-"} | Embalagens: ${embalagens}\n`;
+        reportHTML += `
+          <tr>
+            <td>${produto.nome}</td>
+            <td>${produto.quantidade}</td>
+            <td>${produto.tamanhoEmbalagem || produto.tamanho || "-"}</td>
+            <td>${embalagens}</td>
+          </tr>
+        `;
       });
+      reportHTML += `
+          </tbody>
+        </table>
+        <br>
+        <h3 style="color: red;">Produtos com Estoque Baixo (Necessitam Reposição):</h3>
+        <table border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: red; color: #fff;">
+              <th>Produto</th>
+              <th>Quantidade</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
       const LIMITE_AVISO = 10;
       const lowStock = produtos.filter(produto => produto.quantidade <= LIMITE_AVISO);
-      if (lowStock.length > 0) {
-        report += "\nProdutos com Estoque Baixo (Necessitam de Reposição):\n";
-        lowStock.forEach(produto => {
-          report += `• ${produto.nome} - Quantidade: ${produto.quantidade}\n`;
-        });
-      }
+      lowStock.forEach(produto => {
+        reportHTML += `
+          <tr>
+            <td>${produto.nome}</td>
+            <td>${produto.quantidade}</td>
+          </tr>
+        `;
+      });
+      reportHTML += `
+          </tbody>
+        </table>
+      `;
       
-      // Preenche o campo do formulário oculto com o relatório
-      document.getElementById("hiddenMessage").value = report;
+      // Preenche o campo do formulário oculto com o relatório HTML
+      document.getElementById("hiddenMessage").value = reportHTML;
       
-      // Submete o formulário (o envio ocorrerá via FormSubmit)
+      // Submete o formulário para envio via FormSubmit
       document.getElementById("hiddenEmailForm").submit();
       
       exibirToast("Relatório enviado por e-mail (via FormSubmit)!", "success");
