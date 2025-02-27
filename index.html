@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Sistema de Estoque Completo</title>
+  <title>Sistema de Estoque Premium</title>
   <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <!-- Chart.js -->
@@ -15,19 +15,18 @@
   <!-- SortableJS -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.10.2/Sortable.min.js"></script>
   
-  <!-- OBS.: Removemos a integração com EmailJS pois usaremos o FormSubmit -->
-  
-  <!-- Estilos customizados (Preto & Laranja) -->
+  <!-- Estilos customizados (Preto & Laranja) + Dark Mode -->
   <style>
     body {
       background-color: #fdfdfd; 
       padding-top: 56px;
       font-family: "Roboto", Arial, sans-serif;
+      transition: background-color 0.3s, color 0.3s;
     }
     .navbar {
       background-color: #000 !important;
     }
-    .navbar-brand, .navbar-nav .nav-link {
+    .navbar-brand, .navbar-nav .nav-link, .dark-mode .navbar-brand, .dark-mode .navbar-nav .nav-link {
       color: #FFA500 !important;
     }
     .navbar-brand:hover, .navbar-nav .nav-link:hover {
@@ -40,10 +39,19 @@
       font-weight: 600;
       color: #000;
     }
+    .dark-mode .section-title {
+      color: #fff;
+      border-bottom-color: #FFA500;
+    }
     .card {
       margin-bottom: 20px;
       border-radius: 0.5rem;
       border: 1px solid #FFA500;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .dark-mode .card {
+      background-color: #1e1e1e;
+      color: #fff;
     }
     .card .card-body {
       padding: 1.5rem;
@@ -54,6 +62,9 @@
       text-transform: uppercase;
       font-size: 0.9rem;
       border-color: #000 !important;
+    }
+    .dark-mode .table thead th {
+      color: #000 !important;
     }
     .table td, .table th {
       vertical-align: middle;
@@ -101,6 +112,36 @@
       height: 400px;
       margin: 0 auto;
     }
+    /* Cabeçalho de Categoria */
+    .categoria-header {
+      background-color: #666;
+      color: #fff;
+      font-weight: bold;
+    }
+    .dark-mode .categoria-header {
+      background-color: #444;
+    }
+    /* Dark Mode */
+    .dark-mode {
+      background-color: #121212;
+      color: #ccc;
+    }
+    .dark-mode .card,
+    .dark-mode .table {
+      background-color: #1e1e1e;
+      color: #ccc;
+    }
+    .dark-mode .navbar {
+      background-color: #333 !important;
+    }
+    .dark-mode .navbar-brand, .dark-mode .navbar-nav .nav-link {
+      color: #FFA500 !important;
+    }
+    /* Inline editing */
+    .edit-mode td[contenteditable="true"] {
+      border: 2px dashed #ffa500;
+      outline: none;
+    }
   </style>
 </head>
 <body>
@@ -113,7 +154,7 @@
     <div class="collapse navbar-collapse" id="navbarEstoque">
       <ul class="navbar-nav mr-auto">
         <li class="nav-item">
-          <a class="nav-link" id="controle-tab" data-toggle="tab" href="#controle" role="tab" aria-controls="controle">Controle de Estoque</a>
+          <a class="nav-link active" id="controle-tab" data-toggle="tab" href="#controle" role="tab" aria-controls="controle">Controle de Estoque</a>
         </li>
         <li class="nav-item">
           <a class="nav-link" id="administracao-tab" data-toggle="tab" href="#administracao" role="tab" aria-controls="administracao">Administração</a>
@@ -122,6 +163,8 @@
           <a class="nav-link" id="relatorios-tab" data-toggle="tab" href="#relatorios" role="tab" aria-controls="relatorios">Relatórios</a>
         </li>
       </ul>
+      <!-- Botão de Dark Mode -->
+      <button class="btn btn-orange my-2 my-sm-0" type="button" onclick="toggleDarkMode()">Dark Mode</button>
     </div>
   </nav>
 
@@ -132,6 +175,13 @@
     <div class="tab-content" id="tabsContent">
       <!-- Controle de Estoque -->
       <div class="tab-pane fade show active pt-3" id="controle" role="tabpanel" aria-labelledby="controle-tab">
+        <!-- Filtro de busca -->
+        <div class="card mb-3">
+          <div class="card-body">
+            <h2 class="section-title">Buscar Produtos</h2>
+            <input type="text" id="searchInput" placeholder="Digite para filtrar por produto, categoria ou variação..." class="form-control" oninput="filtrarProdutos()">
+          </div>
+        </div>
         <div class="card">
           <div class="card-body">
             <div id="alertaBaixoEstoque" class="alert alert-warning d-none">
@@ -139,10 +189,12 @@
             </div>
             <h2 class="section-title">Estoque Atual</h2>
             <div class="table-responsive">
-              <table class="table table-bordered table-hover">
+              <table class="table table-bordered table-hover" id="tabelaEstoque">
                 <thead>
                   <tr>
                     <th>Produto</th>
+                    <th>Categoria</th>
+                    <th>Variações</th>
                     <th>Fabricante</th>
                     <th>Quantidade</th>
                     <th>Tamanho da Embalagem</th>
@@ -150,7 +202,7 @@
                   </tr>
                 </thead>
                 <tbody id="tabelaEstoqueBody">
-                  <!-- Gerado dinamicamente -->
+                  <!-- Produtos agrupados por categoria -->
                 </tbody>
               </table>
             </div>
@@ -176,7 +228,7 @@
       
       <!-- Relatórios -->
       <div class="tab-pane fade pt-3" id="relatorios" role="tabpanel" aria-labelledby="relatorios-tab">
-        <div class="card">
+        <div class="card mb-3">
           <div class="card-body">
             <h2 class="section-title">Gráfico de Estoque</h2>
             <div class="chart-container">
@@ -187,11 +239,20 @@
               <button class="btn btn-black" onclick="gerarPDFRelatorio()">Gerar PDF Estoque Baixo</button>
               <button class="btn btn-orange" onclick="gerarPDFCompletoComBarCode()">Gerar PDF Completo com Cód. de Barras</button>
               <button class="btn btn-black" onclick="gerarPDFCompletoEstoque()">Gerar PDF Completo (Estoque)</button>
-              <!-- Botão para enviar relatório por e-mail via FormSubmit -->
               <button class="btn btn-orange" onclick="enviarRelatorioEmailFormSubmit()">Enviar Relatório por E-mail</button>
-              <!-- Botão para gerar formulário de retirada manual -->
               <button class="btn btn-black" onclick="gerarFormularioRetirada()">Gerar Formulário de Retirada Manual</button>
             </div>
+          </div>
+        </div>
+        <!-- Relatório de Retiradas com Filtro por Mês -->
+        <div class="card">
+          <div class="card-body">
+            <h2 class="section-title">Relatório de Retiradas</h2>
+            <div class="form-group">
+              <label for="filterMonth">Selecione o Mês:</label>
+              <input type="month" class="form-control" id="filterMonth">
+            </div>
+            <button class="btn btn-orange" onclick="gerarPDFRetiradas()">Gerar PDF de Retiradas</button>
           </div>
         </div>
       </div>
@@ -200,11 +261,9 @@
 
   <!-- Formulário oculto para envio via FormSubmit -->
   <form id="hiddenEmailForm" action="https://formsubmit.co/metalurgica.aguiaglobal@gmail.com" method="POST" style="display: none;">
-    <!-- Define o assunto do e-mail -->
     <input type="hidden" name="_subject" value="Relatório de Estoque - Sistema de Estoque Completo">
-    <!-- Campo que conterá o relatório -->
+    <input type="hidden" name="_format" value="html">
     <input type="hidden" name="message" id="hiddenMessage">
-    <!-- Opcional: URL para redirecionamento após envio -->
     <input type="hidden" name="_next" value="https://seu-dominio.com/obrigado.html">
   </form>
 
@@ -217,10 +276,16 @@
     /*********** Persistência e Dados ***********/
     let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
     let logMovimentacoes = JSON.parse(localStorage.getItem("logMovimentacoes")) || [];
+    let categories = JSON.parse(localStorage.getItem("categories")) || ["Produção", "Escritório"];
     
     function salvarDados() {
       localStorage.setItem("produtos", JSON.stringify(produtos));
       localStorage.setItem("logMovimentacoes", JSON.stringify(logMovimentacoes));
+      salvarCategorias();
+    }
+    
+    function salvarCategorias() {
+      localStorage.setItem("categories", JSON.stringify(categories));
     }
     
     /*********** Exibir Toast ***********/
@@ -238,29 +303,71 @@
       toast.addEventListener("hidden.bs.toast", () => { toast.remove(); });
     }
     
+    /*********** Filtro de Busca (Página Inicial) ***********/
+    function filtrarProdutos() {
+      const searchValue = document.getElementById("searchInput").value.toLowerCase();
+      const rows = document.querySelectorAll("#tabelaEstoqueBody tr");
+      rows.forEach(row => {
+        // Se for cabeçalho de categoria, não esconda
+        if (row.classList.contains("categoria-header-row")) return;
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(searchValue) ? "" : "none";
+      });
+    }
+    
     /*********** Controle de Estoque (Visão Pública) ***********/
     function atualizarTabela() {
       const tbody = document.getElementById("tabelaEstoqueBody");
       tbody.innerHTML = "";
       let listaBaixoEstoque = [];
       const LIMITE_AVISO = 10;
-      // Ordena produtos pela ordem definida
-      produtos.sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+      // Agrupa produtos por categoria
+      let grouped = {};
       produtos.forEach(produto => {
-        let classeAlerta = (produto.quantidade <= LIMITE_AVISO) ? "alerta" : "";
-        if (produto.quantidade <= LIMITE_AVISO) { 
-          listaBaixoEstoque.push(produto.nome);
+        let cat = produto.categoria || "Sem Categoria";
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(produto);
+      });
+      // Define ordem das categorias
+      let catOrder = [...categories];
+      Object.keys(grouped).forEach(cat => {
+        if (!catOrder.includes(cat)) catOrder.push(cat);
+      });
+      // Itera sobre cada categoria
+      catOrder.forEach(cat => {
+        if (grouped[cat] && grouped[cat].length > 0) {
+          // Cabeçalho da categoria
+          let headerRow = document.createElement("tr");
+          headerRow.classList.add("categoria-header-row");
+          headerRow.innerHTML = `<td colspan="7" class="categoria-header">${cat}</td>`;
+          tbody.appendChild(headerRow);
+          
+          grouped[cat].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+          grouped[cat].forEach(produto => {
+            let classeAlerta = (produto.quantidade <= LIMITE_AVISO) ? "alerta" : "";
+            if (produto.quantidade <= LIMITE_AVISO) {
+              listaBaixoEstoque.push(produto.nome);
+            }
+            const embalagens = produto.tamanhoEmbalagem ? Math.floor(produto.quantidade / produto.tamanhoEmbalagem) : "-";
+            let variacoesText = "-";
+            if (produto.variacoes && typeof produto.variacoes === "object") {
+              variacoesText = Object.entries(produto.variacoes).map(([v,q]) => v + ": " + q).join(", ");
+            } else if (produto.variacoes) {
+              variacoesText = produto.variacoes;
+            }
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td class="${classeAlerta}">${produto.nome}</td>
+              <td class="${classeAlerta}">${produto.categoria || "-"}</td>
+              <td class="${classeAlerta}">${variacoesText}</td>
+              <td class="${classeAlerta}">${produto.fabricante || "-"}</td>
+              <td class="${classeAlerta}">${produto.quantidade}</td>
+              <td class="${classeAlerta}">${produto.tamanhoEmbalagem || produto.tamanho || "-"}</td>
+              <td class="${classeAlerta}">${embalagens}</td>
+            `;
+            tbody.appendChild(tr);
+          });
         }
-        const embalagens = produto.tamanhoEmbalagem ? Math.floor(produto.quantidade / produto.tamanhoEmbalagem) : "-";
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td class="${classeAlerta}">${produto.nome}</td>
-          <td class="${classeAlerta}">${produto.fabricante || "-"}</td>
-          <td class="${classeAlerta}">${produto.quantidade}</td>
-          <td class="${classeAlerta}">${produto.tamanhoEmbalagem || produto.tamanho || "-"}</td>
-          <td class="${classeAlerta}">${embalagens}</td>
-        `;
-        tbody.appendChild(tr);
       });
       const alertaDiv = document.getElementById("alertaBaixoEstoque");
       const listaSpan = document.getElementById("listaBaixoEstoque");
@@ -271,9 +378,10 @@
         alertaDiv.classList.add("d-none");
       }
       salvarDados();
+      filtrarProdutos(); // Atualiza a filtragem se houver texto no search
     }
     
-    // Retirada via Leitor Físico
+    // Retirada via Leitor com variações e controle de quantidade
     function efetuarRetirada() {
       const codigo = document.getElementById("barcodeRetirada").value.trim();
       if (!codigo) { exibirToast("Passe o código no leitor!", "danger"); return; }
@@ -281,19 +389,59 @@
       if (index !== -1) {
         const produto = produtos[index];
         const embalagem = produto.tamanhoEmbalagem || produto.tamanho || 1;
-        if (produto.quantidade >= embalagem) {
-          const quantidadeAnterior = produto.quantidade;
-          produto.quantidade -= embalagem;
+        let variacaoSelecionada = "";
+        // Se o produto tem variações cadastradas (objeto com chaves)
+        if (produto.variacoes && typeof produto.variacoes === "object" && Object.keys(produto.variacoes).length > 0) {
+          let availableVars = Object.keys(produto.variacoes).filter(v => produto.variacoes[v] >= embalagem);
+          if (availableVars.length === 0) {
+            exibirToast("Nenhuma variação com estoque suficiente.", "danger");
+            document.getElementById("barcodeRetirada").value = "";
+            manterFocoScanner();
+            return;
+          }
+          variacaoSelecionada = prompt("Este produto possui variações: " + availableVars.join(", ") + ". Informe a variação desejada:");
+          if (!variacaoSelecionada) {
+            exibirToast("Nenhuma variação informada!", "danger");
+            document.getElementById("barcodeRetirada").value = "";
+            manterFocoScanner();
+            return;
+          }
+          variacaoSelecionada = variacaoSelecionada.trim();
+          if (!produto.variacoes.hasOwnProperty(variacaoSelecionada) || produto.variacoes[variacaoSelecionada] < embalagem) {
+            exibirToast("Variação inválida ou sem estoque suficiente!", "danger");
+            document.getElementById("barcodeRetirada").value = "";
+            manterFocoScanner();
+            return;
+          }
+          const quantidadeAnteriorVar = produto.variacoes[variacaoSelecionada];
+          produto.variacoes[variacaoSelecionada] -= embalagem;
+          // Recalcula a quantidade total como soma das variações
+          produto.quantidade = Object.values(produto.variacoes).reduce((a, b) => a + b, 0);
           atualizarTabela();
-          addLog("Retirada", `Retirada via leitor: 1 embalagem (${embalagem} unidades) do produto "${produto.nome}".`, {
+          addLog("Retirada", `Retirada via leitor: 1 embalagem (${embalagem} unidades) do produto "${produto.nome}" na variação "${variacaoSelecionada}".`, {
             barcode: produto.barcode,
             nome: produto.nome,
-            quantidadeAnterior,
-            quantidadeNova: produto.quantidade
+            quantidadeAnterior: quantidadeAnteriorVar,
+            quantidadeNova: produto.variacoes[variacaoSelecionada],
+            variacao: variacaoSelecionada
           });
-          exibirToast(`Retirada realizada para "${produto.nome}".`);
+          exibirToast(`Retirada realizada para "${produto.nome}" na variação "${variacaoSelecionada}".`);
         } else {
-          exibirToast("Estoque insuficiente para retirar uma embalagem completa!", "danger");
+          // Produto sem variações
+          if (produto.quantidade >= embalagem) {
+            const quantidadeAnterior = produto.quantidade;
+            produto.quantidade -= embalagem;
+            atualizarTabela();
+            addLog("Retirada", `Retirada via leitor: 1 embalagem (${embalagem} unidades) do produto "${produto.nome}".`, {
+              barcode: produto.barcode,
+              nome: produto.nome,
+              quantidadeAnterior,
+              quantidadeNova: produto.quantidade
+            });
+            exibirToast(`Retirada realizada para "${produto.nome}".`);
+          } else {
+            exibirToast("Estoque insuficiente para retirar uma embalagem completa!", "danger");
+          }
         }
       } else {
         if (confirm("Produto não encontrado. Deseja pesquisar no Google?")) {
@@ -306,8 +454,10 @@
     
     /*********** Log de Movimentações ***********/
     function addLog(operacao, detalhes, delta = null) {
-      const data = new Date().toLocaleString();
-      logMovimentacoes.push({ data, operacao, detalhes, delta });
+      const now = new Date();
+      const timestamp = now.toISOString();
+      const dataFormatada = now.toLocaleString();
+      logMovimentacoes.push({ timestamp, data: dataFormatada, operacao, detalhes, delta });
       atualizarLog();
     }
     
@@ -378,8 +528,15 @@
         exibirToast("Produto não encontrado para reverter.", "danger");
         return;
       }
+      // Aqui simplificamos a reversão
       const produto = produtos[idxProduto];
-      produto.quantidade = delta.quantidadeAnterior;
+      if (delta.variacao && produto.variacoes && produto.variacoes[delta.variacao] !== undefined) {
+        // Reverte a variação
+        produto.variacoes[delta.variacao] = delta.quantidadeAnterior;
+        produto.quantidade = Object.values(produto.variacoes).reduce((a, b) => a + b, 0);
+      } else {
+        produto.quantidade = delta.quantidadeAnterior;
+      }
       logMovimentacoes.splice(indexLog, 1);
       exibirToast(`Movimentação revertida para "${produto.nome}".`, "info");
       atualizarTabela();
@@ -409,12 +566,22 @@
                   <input type="text" class="form-control" id="fabricante">
                 </div>
                 <div class="form-group">
-                  <label for="quantidadeProduto">Quantidade Total:</label>
-                  <input type="number" class="form-control" id="quantidadeProduto" required>
+                  <label for="quantidadeProduto">Quantidade Total (somente se não usar variações):</label>
+                  <input type="number" class="form-control" id="quantidadeProduto">
                 </div>
                 <div class="form-group">
                   <label for="tamanhoEmbalagem">Tamanho da Embalagem:</label>
                   <input type="number" class="form-control" id="tamanhoEmbalagem" required>
+                </div>
+                <div class="form-group">
+                  <label for="variacoes">Variações e Quantidades (ex: Vermelho:3, Azul:5):</label>
+                  <input type="text" class="form-control" id="variacoes">
+                </div>
+                <div class="form-group">
+                  <label for="categoria">Categoria:</label>
+                  <select class="form-control" id="categoria">
+                    ${categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+                  </select>
                 </div>
                 <button type="submit" class="btn btn-orange">Salvar Produto</button>
               </form>
@@ -432,15 +599,36 @@
               <button class="btn btn-orange" onclick="importarCSV()">Importar CSV</button>
             </div>
           </div>
-          <!-- Produtos Cadastrados com Drag & Drop -->
+          <!-- Gerenciamento de Categorias -->
+          <div class="card mb-3">
+            <div class="card-body">
+              <h2 class="section-title">Gerenciamento de Categorias</h2>
+              <div class="form-group">
+                <label for="novaCategoria">Adicionar Nova Categoria:</label>
+                <input type="text" class="form-control" id="novaCategoria" placeholder="Nome da nova categoria">
+                <button class="btn btn-orange mt-2" onclick="adicionarCategoria()">Adicionar Categoria</button>
+              </div>
+              <h4>Categorias Existentes:</h4>
+              <ul id="listaCategorias" class="list-group">
+                ${categories.map((cat, index) => `<li class="list-group-item d-flex justify-content-between align-items-center">${cat} <button class="btn btn-sm btn-danger" onclick="excluirCategoria(${index})">Excluir</button></li>`).join('')}
+              </ul>
+            </div>
+          </div>
+          <!-- Produtos Cadastrados com Drag & Drop + Inline Edit -->
           <div class="card mb-3">
             <div class="card-body">
               <h2 class="section-title">Produtos Cadastrados (Admin)</h2>
+              <div class="mb-2">
+                <button class="btn btn-orange" onclick="toggleEditMode()">Habilitar Edição no Local</button>
+                <button class="btn btn-black" onclick="salvarEdicoes()">Salvar Alterações</button>
+              </div>
               <div class="table-responsive">
-                <table class="table table-bordered table-hover">
+                <table class="table table-bordered table-hover" id="tabelaAdmin">
                   <thead>
                     <tr>
                       <th>Produto</th>
+                      <th>Categoria</th>
+                      <th>Variações</th>
                       <th>Fabricante</th>
                       <th>Quantidade</th>
                       <th>Tamanho da Embalagem</th>
@@ -454,7 +642,6 @@
               <h2 class="section-title">Histórico de Movimentações</h2>
               <button class="btn btn-sm btn-orange mb-2" onclick="toggleHistorico()">Mostrar/Esconder Histórico</button>
               <div id="historicoMovimentacoes"></div>
-              <!-- Botão para enviar e-mail com relatório via FormSubmit -->
               <button class="btn btn-orange mt-3" onclick="enviarRelatorioEmailFormSubmit()">Enviar Relatório por E-mail</button>
             </div>
           </div>
@@ -475,8 +662,27 @@
           const barcode = document.getElementById("barcode").value.trim();
           const nome = document.getElementById("nomeProduto").value.trim();
           const fabricante = document.getElementById("fabricante").value.trim();
-          const quantidade = parseInt(document.getElementById("quantidadeProduto").value);
+          const quantidadeInput = parseInt(document.getElementById("quantidadeProduto").value);
           const tamanhoEmbalagem = parseInt(document.getElementById("tamanhoEmbalagem").value);
+          const variacoesInput = document.getElementById("variacoes").value.trim();
+          let variacoesObj = null;
+          let totalQuantidade = quantidadeInput || 0;
+          if (variacoesInput !== "") {
+            variacoesObj = {};
+            let sum = 0;
+            const pairs = variacoesInput.split(",");
+            pairs.forEach(pair => {
+              const parts = pair.split(":").map(item => item.trim());
+              if (parts.length === 2) {
+                const varName = parts[0];
+                const varQty = parseInt(parts[1], 10) || 0;
+                variacoesObj[varName] = varQty;
+                sum += varQty;
+              }
+            });
+            totalQuantidade = sum;
+          }
+          const categoria = document.getElementById("categoria").value;
           let index = produtos.findIndex(p => p.barcode === barcode || p.nome.toLowerCase() === nome.toLowerCase());
           const quantidadeAnterior = (index !== -1) ? produtos[index].quantidade : 0;
           if (index !== -1) {
@@ -484,33 +690,37 @@
               ...produtos[index],
               nome,
               fabricante,
-              quantidade,
+              quantidade: totalQuantidade,
               tamanhoEmbalagem,
-              quantidadeOriginal: quantidade,
-              barcode
+              variacoes: variacoesObj,
+              quantidadeOriginal: totalQuantidade,
+              barcode,
+              categoria
             };
             addLog("Atualização", `Produto "${nome}" atualizado.`, {
               barcode,
               nome,
               quantidadeAnterior,
-              quantidadeNova: quantidade
+              quantidadeNova: totalQuantidade
             });
             exibirToast(`Produto "${nome}" atualizado.`);
           } else {
             produtos.push({
               nome,
               fabricante,
-              quantidade,
+              quantidade: totalQuantidade,
               tamanhoEmbalagem,
-              quantidadeOriginal: quantidade,
+              variacoes: variacoesObj,
+              quantidadeOriginal: totalQuantidade,
               barcode,
+              categoria,
               ordem: produtos.length
             });
             addLog("Cadastro", `Produto "${nome}" cadastrado.`, {
               barcode,
               nome,
               quantidadeAnterior: 0,
-              quantidadeNova: quantidade
+              quantidadeNova: totalQuantidade
             });
             exibirToast(`Produto "${nome}" cadastrado.`);
           }
@@ -556,24 +766,31 @@
       }
     }
     
-    // Renderização da tabela de administração com Drag & Drop
+    // Renderização da tabela de administração com Drag & Drop + Inline Editing
     function renderAdminTabela() {
       const tbody = document.getElementById("tabelaAdminBody");
       if (!tbody) return;
       produtos.sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
       tbody.innerHTML = "";
       produtos.forEach((produto, index) => {
+        const embalagens = produto.tamanhoEmbalagem ? Math.floor(produto.quantidade / produto.tamanhoEmbalagem) : "-";
+        let variacoesText = "-";
+        if (produto.variacoes && typeof produto.variacoes === "object") {
+          variacoesText = Object.entries(produto.variacoes).map(([v,q]) => v + ": " + q).join(", ");
+        } else if (produto.variacoes) {
+          variacoesText = produto.variacoes;
+        }
         const tr = document.createElement("tr");
         tr.setAttribute("data-index", index);
-        const embalagens = produto.tamanhoEmbalagem ? Math.floor(produto.quantidade / produto.tamanhoEmbalagem) : "-";
         tr.innerHTML = `
-          <td>${produto.nome}</td>
-          <td>${produto.fabricante || "-"}</td>
-          <td>${produto.quantidade}</td>
-          <td>${produto.tamanhoEmbalagem || produto.tamanho || "-"}</td>
+          <td contenteditable="false">${produto.nome}</td>
+          <td contenteditable="false">${produto.categoria || "-"}</td>
+          <td contenteditable="false">${variacoesText}</td>
+          <td contenteditable="false">${produto.fabricante || "-"}</td>
+          <td contenteditable="false">${produto.quantidade}</td>
+          <td contenteditable="false">${produto.tamanhoEmbalagem || produto.tamanho || "-"}</td>
           <td>${embalagens}</td>
           <td>
-            <button class="btn btn-sm btn-orange" onclick="editarProduto(${index})">Editar</button>
             <button class="btn btn-sm btn-black" onclick="excluirProduto(${index})">Excluir</button>
           </td>
         `;
@@ -597,13 +814,79 @@
       });
     }
     
-    function editarProduto(index) {
-      const produto = produtos[index];
-      document.getElementById("barcode").value = produto.barcode;
-      document.getElementById("nomeProduto").value = produto.nome;
-      document.getElementById("fabricante").value = produto.fabricante;
-      document.getElementById("quantidadeProduto").value = produto.quantidade;
-      document.getElementById("tamanhoEmbalagem").value = produto.tamanhoEmbalagem || produto.tamanho;
+    // Alterna modo de edição inline
+    let editMode = false;
+    function toggleEditMode() {
+      editMode = !editMode;
+      const table = document.getElementById("tabelaAdmin");
+      if (editMode) {
+        table.classList.add("edit-mode");
+        table.querySelectorAll("tbody tr").forEach(tr => {
+          // Permitir edição em algumas colunas
+          const tds = tr.querySelectorAll("td");
+          // Nome(0), Categoria(1), Variações(2), Fabricante(3), Quantidade(4), TamanhoEmb(5)
+          tds[0].setAttribute("contenteditable", "true");
+          tds[1].setAttribute("contenteditable", "true");
+          tds[2].setAttribute("contenteditable", "true");
+          tds[3].setAttribute("contenteditable", "true");
+          tds[4].setAttribute("contenteditable", "true");
+          tds[5].setAttribute("contenteditable", "true");
+        });
+        exibirToast("Modo de edição habilitado! Não se esqueça de clicar em 'Salvar Alterações'.");
+      } else {
+        table.classList.remove("edit-mode");
+        table.querySelectorAll("tbody tr").forEach(tr => {
+          const tds = tr.querySelectorAll("td");
+          for (let i = 0; i < 6; i++) {
+            tds[i].setAttribute("contenteditable", "false");
+          }
+        });
+        exibirToast("Modo de edição desabilitado.");
+      }
+    }
+    
+    // Salva as edições inline
+    function salvarEdicoes() {
+      const table = document.getElementById("tabelaAdmin");
+      const rows = table.querySelectorAll("tbody tr");
+      rows.forEach(tr => {
+        const index = parseInt(tr.getAttribute("data-index"));
+        const tds = tr.querySelectorAll("td");
+        const nome = tds[0].innerText.trim();
+        const categoria = tds[1].innerText.trim();
+        const variacoesText = tds[2].innerText.trim();
+        const fabricante = tds[3].innerText.trim();
+        const quantidade = parseInt(tds[4].innerText.trim()) || 0;
+        const tamanhoEmbalagem = parseInt(tds[5].innerText.trim()) || 1;
+        // Recalcula variações se for um objeto
+        let variacoesObj = null;
+        if (variacoesText && variacoesText.includes(":")) {
+          variacoesObj = {};
+          let sum = 0;
+          variacoesText.split(",").forEach(pair => {
+            const parts = pair.split(":").map(item => item.trim());
+            if (parts.length === 2) {
+              const varName = parts[0];
+              const varQty = parseInt(parts[1], 10) || 0;
+              variacoesObj[varName] = varQty;
+              sum += varQty;
+            }
+          });
+          produtos[index].variacoes = variacoesObj;
+          produtos[index].quantidade = Object.values(variacoesObj).reduce((a, b) => a + b, 0);
+        } else {
+          produtos[index].variacoes = null;
+          produtos[index].quantidade = quantidade;
+        }
+        produtos[index].nome = nome;
+        produtos[index].categoria = categoria;
+        produtos[index].fabricante = fabricante;
+        produtos[index].tamanhoEmbalagem = tamanhoEmbalagem;
+      });
+      salvarDados();
+      atualizarTabela();
+      renderAdminTabela();
+      exibirToast("Alterações salvas com sucesso!");
     }
     
     function excluirProduto(index) {
@@ -630,6 +913,34 @@
       exibirToast("Você saiu do modo administrador.", "info");
     }
     
+    /*********** Gerenciamento de Categorias ***********/
+    function adicionarCategoria() {
+      const novaCat = document.getElementById("novaCategoria").value.trim();
+      if (!novaCat) {
+        exibirToast("Digite o nome da nova categoria.", "warning");
+        return;
+      }
+      if (!categories.includes(novaCat)) {
+        categories.push(novaCat);
+        salvarCategorias();
+        exibirToast(`Categoria "${novaCat}" adicionada com sucesso!`);
+        renderAdminContent();
+      } else {
+        exibirToast("Categoria já existe!", "warning");
+      }
+      document.getElementById("novaCategoria").value = "";
+    }
+    
+    function excluirCategoria(index) {
+      if (confirm("Tem certeza que deseja excluir esta categoria?")) {
+        const catRemovida = categories[index];
+        categories.splice(index, 1);
+        salvarCategorias();
+        exibirToast(`Categoria "${catRemovida}" excluída!`, "info");
+        renderAdminContent();
+      }
+    }
+    
     /*********** Importar CSV ***********/
     function importarCSV() {
       const inputFile = document.getElementById("arquivoCSV");
@@ -649,11 +960,11 @@
           const [barcode, nome, fabricante, quantidade, tamanhoEmbalagem] = colunas.map(c => c.trim());
           const qtd = parseInt(quantidade, 10) || 0;
           const tam = parseInt(tamanhoEmbalagem, 10) || 1;
-          let index = produtos.findIndex(p => p.barcode === barcode || p.nome.toLowerCase() === nome.toLowerCase());
-          if (index !== -1) {
-            const qtdAnterior = produtos[index].quantidade;
-            produtos[index] = {
-              ...produtos[index],
+          let i = produtos.findIndex(p => p.barcode === barcode || p.nome.toLowerCase() === nome.toLowerCase());
+          if (i !== -1) {
+            const qtdAnterior = produtos[i].quantidade;
+            produtos[i] = {
+              ...produtos[i],
               nome,
               fabricante,
               quantidade: qtd,
@@ -798,12 +1109,20 @@
       const doc = new jsPDF();
       doc.setFontSize(16);
       doc.text("Relatório de Estoque Baixo", 14, 20);
-      const tableColumn = ["Produto", "Fabricante", "Quantidade", "Tamanho", "Embalagens"];
+      const tableColumn = ["Produto", "Categoria", "Variações", "Fabricante", "Quantidade", "Tamanho", "Embalagens"];
       const tableRows = [];
       produtosFaltando.forEach(produto => {
          const embalagens = produto.tamanhoEmbalagem ? Math.floor(produto.quantidade / produto.tamanhoEmbalagem) : "-";
+         let variacoesText = "-";
+         if (produto.variacoes && typeof produto.variacoes === "object") {
+           variacoesText = Object.entries(produto.variacoes).map(([v,q]) => v + ": " + q).join(", ");
+         } else if (produto.variacoes) {
+           variacoesText = produto.variacoes;
+         }
          tableRows.push([
              produto.nome,
+             produto.categoria || "-",
+             variacoesText,
              produto.fabricante || "-",
              produto.quantidade.toString(),
              (produto.tamanhoEmbalagem || produto.tamanho || "").toString(),
@@ -827,6 +1146,8 @@
       doc.text("Relatório Completo de Estoque", 14, 20);
       const tableData = produtos.map(produto => ({
         nome: produto.nome,
+        categoria: produto.categoria || "-",
+        variacoes: (produto.variacoes && typeof produto.variacoes === "object") ? Object.entries(produto.variacoes).map(([v,q]) => v + ": " + q).join(", ") : (produto.variacoes || "-"),
         fabricante: produto.fabricante || "-",
         quantidade: produto.quantidade.toString(),
         tamanho: (produto.tamanhoEmbalagem || produto.tamanho || "").toString(),
@@ -836,27 +1157,29 @@
         startY: 30,
         theme: 'grid',
         head: [
-          ["Produto", "Fabricante", "Quantidade", "Tamanho", "Código de Barras"]
+          ["Produto", "Categoria", "Variações", "Fabricante", "Quantidade", "Tamanho", "Código de Barras"]
         ],
         body: tableData.map(item => [
           item.nome,
+          item.categoria,
+          item.variacoes,
           item.fabricante,
           item.quantidade,
           item.tamanho,
           item.barcode
         ]),
         columnStyles: {
-          4: { cellWidth: 60 }
+          6: { cellWidth: 60 }
         },
         didParseCell: function (data) {
-          if (data.section === 'body' && data.column.index === 4) {
+          if (data.section === 'body' && data.column.index === 6) {
             data.cell.styles.minCellHeight = 25;
           }
         },
         didDrawCell: function (data) {
           if (
             data.section === 'body' &&
-            data.column.index === 4 &&
+            data.column.index === 6 &&
             data.cell.raw &&
             data.cell.raw !== ""
           ) {
@@ -888,12 +1211,20 @@
       const doc = new jsPDF();
       doc.setFontSize(16);
       doc.text("Relatório Completo de Estoque", 14, 20);
-      const tableColumn = ["Produto", "Fabricante", "Quantidade", "Tamanho", "Embalagens", "Código de Barras"];
+      const tableColumn = ["Produto", "Categoria", "Variações", "Fabricante", "Quantidade", "Tamanho", "Embalagens", "Código de Barras"];
       const tableRows = [];
       produtos.forEach(produto => {
         const embalagens = produto.tamanhoEmbalagem ? Math.floor(produto.quantidade / produto.tamanhoEmbalagem) : "-";
+        let variacoesText = "-";
+        if (produto.variacoes && typeof produto.variacoes === "object") {
+          variacoesText = Object.entries(produto.variacoes).map(([v,q]) => v + ": " + q).join(", ");
+        } else if (produto.variacoes) {
+          variacoesText = produto.variacoes;
+        }
         tableRows.push([
           produto.nome,
+          produto.categoria || "-",
+          variacoesText,
           produto.fabricante || "-",
           produto.quantidade.toString(),
           (produto.tamanhoEmbalagem || produto.tamanho || "").toString(),
@@ -911,7 +1242,6 @@
       exibirToast("PDF completo de estoque gerado com sucesso!", "success");
     }
     
-    /*********** Função para Gerar Formulário de Retirada Manual ***********/
     function gerarFormularioRetirada() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
@@ -919,28 +1249,22 @@
       doc.text("Formulário de Retirada Manual", 14, 20);
       
       doc.setFontSize(12);
-      // Campo Data
       doc.text("Data:", 14, 35);
       doc.line(30, 33, 100, 33);
       
-      // Campo Nome do Funcionário
       doc.text("Nome do Funcionário:", 14, 45);
       doc.line(65, 43, 150, 43);
       
-      // Campo Código do Produto
       doc.text("Código do Produto:", 14, 55);
       doc.line(65, 53, 150, 53);
       
-      // Campo Quantidade Retirada
       doc.text("Quantidade Retirada:", 14, 65);
       doc.line(70, 63, 100, 63);
       
-      // Campo Observações
       doc.text("Observações:", 14, 75);
       doc.line(14, 77, 190, 77);
       doc.line(14, 83, 190, 83);
       
-      // Rodapé ou instruções
       doc.setFontSize(10);
       doc.text("Preencha os campos manualmente e, posteriormente, insira os dados no sistema.", 14, 95);
       
@@ -948,30 +1272,119 @@
       exibirToast("Formulário de retirada gerado com sucesso!", "success");
     }
     
+    /*********** Relatório de Retiradas com Filtro por Mês ***********/
+    function gerarPDFRetiradas() {
+      const filterMonth = document.getElementById("filterMonth").value;
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      // Ajuste para filtrar usando slice(0,7)
+      let logsFiltrados = logMovimentacoes.filter(log => {
+        // Operações de Retirada
+        if (!log.operacao.toLowerCase().includes("retirada")) return false;
+        if (filterMonth) {
+          // Garante que a substring do timestamp (AAAA-MM) seja igual ao filterMonth
+          return log.timestamp.slice(0, 7) === filterMonth;
+        }
+        return true;
+      });
+      if (logsFiltrados.length === 0) {
+        exibirToast("Não há retiradas neste período.", "info");
+        return;
+      }
+      doc.setFontSize(16);
+      doc.text("Relatório de Retiradas", 14, 20);
+      const tableColumn = ["Data/Hora", "Operação", "Detalhes"];
+      const tableRows = [];
+      logsFiltrados.forEach(log => {
+        tableRows.push([
+          log.data,
+          log.operacao,
+          log.detalhes
+        ]);
+      });
+      doc.autoTable({
+         head: [tableColumn],
+         body: tableRows,
+         startY: 30,
+         theme: 'grid'
+      });
+      doc.save("Relatorio_Retiradas.pdf");
+      exibirToast("PDF de retiradas gerado com sucesso!", "success");
+    }
+    
     /*********** Envio de E-mail com Relatório via FormSubmit ***********/
     function enviarRelatorioEmailFormSubmit() {
-      // Monta o relatório com os produtos em estoque
-      let report = "Relatório de Estoque\n\nProdutos:\n";
+      let reportHTML = `
+        <h2 style="font-family: Arial, sans-serif;">Relatório de Estoque - Sistema de Estoque Completo</h2>
+        <h3 style="font-family: Arial, sans-serif;">Produtos em Estoque:</h3>
+        <table border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse: collapse; font-family: Arial, sans-serif;">
+          <thead>
+            <tr style="background-color: #FFA500; color: #000;">
+              <th>Produto</th>
+              <th>Categoria</th>
+              <th>Variações</th>
+              <th>Quantidade</th>
+              <th>Tamanho da Embalagem</th>
+              <th>Embalagens</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      const LIMITE_AVISO = 10;
       produtos.forEach(produto => {
         const embalagens = produto.tamanhoEmbalagem ? Math.floor(produto.quantidade / produto.tamanhoEmbalagem) : "-";
-        report += `• ${produto.nome} - Quantidade: ${produto.quantidade} | Tamanho: ${produto.tamanhoEmbalagem || produto.tamanho || "-"} | Embalagens: ${embalagens}\n`;
+        let variacoesText = "-";
+        if (produto.variacoes && typeof produto.variacoes === "object") {
+          variacoesText = Object.entries(produto.variacoes).map(([v,q]) => v + ": " + q).join(", ");
+        } else if (produto.variacoes) {
+          variacoesText = produto.variacoes;
+        }
+        reportHTML += `
+          <tr>
+            <td>${produto.nome}</td>
+            <td>${produto.categoria || "-"}</td>
+            <td>${variacoesText}</td>
+            <td>${produto.quantidade}</td>
+            <td>${produto.tamanhoEmbalagem || produto.tamanho || "-"}</td>
+            <td>${embalagens}</td>
+          </tr>
+        `;
       });
-      const LIMITE_AVISO = 10;
+      reportHTML += `
+          </tbody>
+        </table>
+        <br>
+        <h3 style="color: red; font-family: Arial, sans-serif;">Produtos com Estoque Baixo (Necessitam Reposição):</h3>
+        <table border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse: collapse; font-family: Arial, sans-serif;">
+          <thead>
+            <tr style="background-color: red; color: #fff;">
+              <th>Produto</th>
+              <th>Quantidade</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
       const lowStock = produtos.filter(produto => produto.quantidade <= LIMITE_AVISO);
-      if (lowStock.length > 0) {
-        report += "\nProdutos com Estoque Baixo (Necessitam de Reposição):\n";
-        lowStock.forEach(produto => {
-          report += `• ${produto.nome} - Quantidade: ${produto.quantidade}\n`;
-        });
-      }
-      
-      // Preenche o campo do formulário oculto com o relatório
-      document.getElementById("hiddenMessage").value = report;
-      
-      // Submete o formulário (o envio ocorrerá via FormSubmit)
+      lowStock.forEach(produto => {
+        reportHTML += `
+          <tr>
+            <td>${produto.nome}</td>
+            <td>${produto.quantidade}</td>
+          </tr>
+        `;
+      });
+      reportHTML += `
+          </tbody>
+        </table>
+      `;
+      document.getElementById("hiddenMessage").value = reportHTML;
       document.getElementById("hiddenEmailForm").submit();
-      
       exibirToast("Relatório enviado por e-mail (via FormSubmit)!", "success");
+    }
+    
+    /*********** Dark Mode ***********/
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark-mode");
     }
     
     /*********** Foco no Scanner ***********/
@@ -1015,3 +1428,4 @@
   </script>
 </body>
 </html>
+
